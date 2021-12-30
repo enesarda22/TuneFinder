@@ -17,13 +17,13 @@ num_of_filters = 64;
 dct_coefficients = 20;
 %% windowing the input sound
 [segment, Fs] = audioread("Data/genres_original/blues/blues.00000.wav");
-segment = segment(1:4*Fs);
+segment = segment(1:3*Fs);
 
-[coeffs, filtered]=utilities.mfcc_calc(segment, sample_rate, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, true);
-coeffs = coeffs';
-coeffs = coeffs(all(~isnan(coeffs),2),:);
-
-features = [mean(coeffs), var(coeffs)];
+% [coeffs, filtered]=utilities.mfcc_calc(segment, sample_rate, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, true);
+% coeffs = coeffs';
+% coeffs = coeffs(all(~isnan(coeffs),2),:);
+% 
+% features = [mean(coeffs), var(coeffs)];
 sound(segment, Fs);
 
 %% HPSS
@@ -47,90 +47,73 @@ sound(p2, Fs);
 spectrogram(p2,1024,512,1024,Fs,"yaxis")
 title("Recovered Percussive Audio")
 
-% %% residual
-% sound(r, Fs)
-% 
-% spectrogram(r,1024,512,1024,Fs,"yaxis")
-% title("Recovered Residual Audio")
-
-
 %% feature extraction
-classes = ["blues", "classical", "country", "disco", "hiphop", "jazz", "metal", "pop", "reggae", "rock"];
+classes = ["blues", "classical", "country", "disco", "hiphop", "jazz", "metal", "pop", "reggae", "rock"]; % classes are defined
 Fs = 22050; % sampling rate
-dur = 3; % duration in sec
+dur = 3; % duration of segments in sec
 n_samples = Fs*dur; % number of samples
 
 rootdir = 'Data';
 filelist = dir(fullfile(rootdir, '**/*.wav'));
-data = zeros(10000, 46);
-y = string([10000, 1]);
+data = zeros(10000, 52); % data is initialized
+y = string([10000, 1]); % target labels are initialized
 
-idx = 1;
+idx = 1; % sample index is initialized
 
-for i = 1:length(filelist)
+for i = 1:length(filelist) % iterates through files
 
+    % genre name is extracted as the label
     file = filelist(i);
     str = strsplit(file.name, '.');
     label = str{1};
 
+    % tries to read the audio file
     try
         track = audioread(strcat(file.folder, '/', file.name));
     catch
         fprintf("%d is broken\n", i);
     end
 
-    for j = 1:9
-        segment = track((j-1)*n_samples+1:j*n_samples);
-        data(idx, :) = get_features(segment, Fs);
+    for j = 1:9 % iterates through all segments
+        segment = track((j-1)*n_samples+1:j*n_samples); % segment is formed
+        data(idx, :) = get_features(segment, Fs); % features are extracted
 
-        y(idx) = label;
-        idx = idx+1;
+        y(idx) = label; % label is formed
+        idx = idx+1; % index is incremented
     end
 
-    segment = track(9*n_samples+1:end);
-    data(idx, :) = get_features(segment, Fs);
+    segment = track(9*n_samples+1:end); % last segment
+    data(idx, :) = get_features(segment, Fs); % last data
     
-    y(idx) = label;
-    idx = idx+1;
+    y(idx) = label; % label is formed
+    idx = idx+1; % index is incremented
     fprintf("%s is added\n", file.name);
 end
 
+% matrices are stored
 writematrix(data, 'data.txt');
 writematrix(y, 'y.txt');
 
 %% shazam
 
-[track, Fs] = audioread("yenidena.mp3");
+[track, Fs] = audioread("data/shazam_data/impromptu.mp3");
 track = track(:, 1);
 
 dur = 3; % duration in sec
 n_samples = Fs*dur; % number of samples
 n_segments = floor(length(track)/n_samples);
 
-data = zeros(n_segments, 44);
+data = zeros(n_segments, 52);
 
 for j = 1:n_segments-1
     segment = track((j-1)*n_samples+1:j*n_samples);
-    [coeffs, ~]=utilities.mfcc_calc(segment, Fs, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, true);
-    coeffs = coeffs';
-    coeffs = coeffs(all(~isnan(coeffs),2),:);
-
-    data(j, 1:4) = hpss_features(segment, Fs); % hpss featuers are added
-    data(j, 5:24) = mean(coeffs); % mean of the mfcc are added
-    data(j, 25:44) = var(coeffs); % variance of the mfcc are added
-
+    data(j, :) = get_features(segment, Fs);
 end
 
 segment = track((n_segments-1)*n_samples+1:end);
-[coeffs, ~]=utilities.mfcc_calc(segment, Fs, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, true);
-coeffs = coeffs';
-coeffs = coeffs(all(~isnan(coeffs),2),:);
+data(n_segments, :) = get_features(segment, Fs);
 
-data(n_segments, 1:4) = hpss_features(segment, Fs); % hpss featuers are added
-data(n_segments, 5:24) = mean(coeffs); % mean of the mfcc are added
-data(n_segments, 25:44) = var(coeffs); % variance of the mfcc are added
-
-writematrix(data, 'yenidena.txt');
+writematrix(data, 'data/shazam_data/impromptu.txt');
 
 %% fischer
 d = 44;
