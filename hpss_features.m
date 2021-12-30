@@ -1,5 +1,9 @@
 function [hpss_coeffs] = hpss_features(track, Fs)
-
+% the following lines computes the harmonics with predefined 
+% the threshold and N values are got from the paper 
+% Driedger, J., Müller, M., & Disch, S. (2014, October). 
+% Extending Harmonic-Percussive Separation of Audio Signals. 
+% In ISMIR (pp. 611-616).
 th1 = 0.7;
 N1 = 4096;
 [h, ~] = my_hpss(track, Fs, th1, N1);

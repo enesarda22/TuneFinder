@@ -1,5 +1,5 @@
 function [h, p] = my_hpss(segment, Fs, threshold, N)
-
+    % this function calculates the harmonics and percussion of a segment
     win = sqrt(hann(N,"periodic"));
     overlapLength = floor(numel(win)/2);
     fftLength = 2^nextpow2(numel(win) + 1);
