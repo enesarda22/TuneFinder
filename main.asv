@@ -95,7 +95,7 @@ writematrix(data, 'data.txt');
 writematrix(y, 'y.txt');
 
 %% shazam feature extraction
-classes = ["bir_ihtimal_recording"];
+classes = ["bu_son_olsun_recording", "bir_kadin_recording"];
 
 for i = 1:length(classes)
     class = classes(i);
@@ -243,14 +243,13 @@ fprintf("%s\n", classes(y));
 %% random forest
 
 % model = fitctree(A, labels);
-% t = templateTree('NumVariablesToSample','all',...
-%     'PredictorSelection','interaction-curvature','Surrogate','on');
-% model = fitrensemble(A, labels, 'Method','Bag','NumLearningCycles',125, ...
-%     'Learners',t);
+t = templateTree('NumVariablesToSample','all',...
+    'PredictorSelection','interaction-curvature','Surrogate','on');
+model = fitrensemble(A, labels, 'Method','Bag','NumLearningCycles',200, ...
+    'Learners',t);
 
-% classes = ["bir kadin cizeceksin", "bu son olsun", "ihtimal", "impromptu", "yalan"];
-classes = ["bit ihtimal", "bir kadin", "bu son"];
-model = fitcknn(A, labels);
+classes = ["bir kadin cizeceksin", "bu son olsun", "ihtimal", "impromptu", "yalan"];
+% model = fitcknn(A, labels);
 
 %%
 
