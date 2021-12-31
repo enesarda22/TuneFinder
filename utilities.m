@@ -79,7 +79,7 @@ classdef utilities
             % is_normalized : a boolean to indicate the filters should be normalized according to their bandwidth in frequency domain
             
             frame_len = floor(sample_rate * frame_size / 1000); % calculate the length of each sample frame
-            frame_shift = sample_rate * hop_size / 1000; % calculate the length of each shifting
+            frame_shift = floor(sample_rate * hop_size / 1000); % calculate the length of each shifting
             frame_num = floor((length(data)-frame_len) / frame_shift)+1; % calculate the resulting number of frames
             frames = zeros(FFT_size/2+1,frame_num); % initialize the frames
             hamming_win = hamming(frame_len); % get the hamming filter

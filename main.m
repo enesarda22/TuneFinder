@@ -50,8 +50,9 @@ title("Recovered Percussive Audio")
 %% feature extraction
 classes = ["blues", "classical", "country", "disco", "hiphop", "jazz", "metal", "pop", "reggae", "rock"]; % classes are defined
 Fs = 22050; % sampling rate
-dur = 3; % duration of segments in sec
+dur = 30; % duration of segments in sec
 n_samples = Fs*dur; % number of samples
+n_segments = floor(30/dur); % number of segments each song
 
 rootdir = 'data';
 filelist = dir(fullfile(rootdir, '**/*.wav'));
@@ -74,7 +75,7 @@ for i = 1:length(filelist) % iterates through files
         fprintf("%d is broken\n", i);
     end
 
-    for j = 1:9 % iterates through all segments
+    for j = 1:n_segments-1 % iterates through all segments
         segment = track((j-1)*n_samples+1:j*n_samples); % segment is formed
         data(idx, :) = get_features(segment, Fs); % features are extracted
 
@@ -82,7 +83,7 @@ for i = 1:length(filelist) % iterates through files
         idx = idx+1; % index is incremented
     end
 
-    segment = track(9*n_samples+1:end); % last segment
+    segment = track((n_segments-1)*n_samples+1:end); % last segment
     data(idx, :) = get_features(segment, Fs); % last data
     
     y(idx) = label; % label is formed
@@ -95,29 +96,34 @@ writematrix(data, 'data.txt');
 writematrix(y, 'y.txt');
 
 %% shazam feature extraction
-classes = ["bir_ihtimal_recording"];
+classes = ["yalan", "impromptu"];
 
 for i = 1:length(classes)
     class = classes(i);
 
-    [track, Fs] = audioread("data/shazam_data/" + class + ".m4a");
+    [track, Fs] = audioread("data/shazam_data/" + class + ".mp3");
     track = track(:, 1);
+%     track = track(10*Fs:180*Fs);
     
-    dur = 3; % duration in sec
-    n_samples = Fs*dur; % number of samples
-    n_segments = floor(length(track)/n_samples);
+    window_length = 3; % window in sec
+    hop_length = 1; % hop in sec
+
+    frame_len = floor(window_length*Fs);
+    frame_shift = floor(hop_length*Fs);
+
+    n_frames = floor((length(track)-frame_len) / frame_shift)+1;
     
-    data = zeros(n_segments, 52);
+    data = zeros(n_frames, 52);
     
-    for j = 1:n_segments-1
-        segment = track((j-1)*n_samples+1:j*n_samples);
+    for j = 1:n_frames
+        segment = track((j-1)*frame_shift+1:(j-1)*frame_shift+frame_len);
         data(j, :) = get_features(segment, Fs);
     end
     
-    segment = track((n_segments-1)*n_samples+1:end);
-    data(n_segments, :) = get_features(segment, Fs);
+%     segment = track((n_segments-1)*n_samples+1:end);
+%     data(n_segments, :) = get_features(segment, Fs);
     
-    writematrix(data, 'extracted_features/shazam/recording/' + class + '.txt');
+    writematrix(data, 'extracted_features/shazam/' + class + '.txt');
 end
 
 %% fischer
@@ -162,7 +168,7 @@ legend('impromptu','yalan');
 title(["training data J =", num2str(J)]);
 
 %% read shazam features
-rootdir = 'extracted_features/shazam/recording';
+rootdir = 'extracted_features/shazam';
 filelist = dir(fullfile(rootdir, '*.txt'));
 
 file = filelist(1).name;
@@ -219,25 +225,29 @@ end
 
 fprintf(c);
 
+
 %% k-nearest neigbor
 
-classes = ["bir kadin cizeceksin", "bu son olsun", "ihtimal", "impromptu", "yalan"];
+classes = ["fade to black", "impromptu", "sarkilarin gozu", "yalan"];
 
 recObj = audiorecorder(Fs, 16, 1);
 disp('Listening....');
 
 recordblocking(recObj, 3);
 track = getaudiodata(recObj);
+
 test = get_features(track, Fs);
 
-k = 30;
+k = 50;
 
 distances = vecnorm(A' - test'); % finds the distance to training samples
 [~, idx] = sort(distances, 'ascend'); % sorts the distances in ascending order
-% similarities = cosineSimilarity(A, test);
-% [~, idx] = sort(similarities, 'descend'); % sorts the similarities in descending order
-y = mode(labels(idx(1:k))); % assigned class is the one that appears the most among the k nearest neighbor
 
+% sims = cosineSimilarity(normalized_A, test);
+% [~, idx] = sort(sims, 'ascend');
+
+y = mode(labels(idx(1:k))); % assigned class is the one that appears the most among the k nearest neighbor
+sum(labels(idx(1:k)) == y)
 fprintf("%s\n", classes(y));
 
 %% random forest
@@ -250,7 +260,7 @@ fprintf("%s\n", classes(y));
 
 % classes = ["bir kadin cizeceksin", "bu son olsun", "ihtimal", "impromptu", "yalan"];
 classes = ["bit ihtimal", "bir kadin", "bu son"];
-model = fitcknn(A, labels);
+% model = fitcknn(A, labels);
 
 %%
 

@@ -95,29 +95,34 @@ writematrix(data, 'data.txt');
 writematrix(y, 'y.txt');
 
 %% shazam feature extraction
-classes = ["bu_son_olsun_recording", "bir_kadin_recording"];
+classes = ["yalan", "impromptu"];
 
 for i = 1:length(classes)
     class = classes(i);
 
-    [track, Fs] = audioread("data/shazam_data/" + class + ".m4a");
+    [track, Fs] = audioread("data/shazam_data/" + class + ".mp3");
     track = track(:, 1);
+%     track = track(10*Fs:180*Fs);
     
-    dur = 3; % duration in sec
-    n_samples = Fs*dur; % number of samples
-    n_segments = floor(length(track)/n_samples);
+    window_length = 3; % window in sec
+    hop_length = 1; % hop in sec
+
+    frame_len = floor(window_length*Fs);
+    frame_shift = floor(hop_length*Fs);
+
+    n_frames = floor((length(track)-frame_len) / frame_shift)+1;
     
-    data = zeros(n_segments, 52);
+    data = zeros(n_frames, 52);
     
-    for j = 1:n_segments-1
-        segment = track((j-1)*n_samples+1:j*n_samples);
+    for j = 1:n_frames
+        segment = track((j-1)*frame_shift+1:(j-1)*frame_shift+frame_len);
         data(j, :) = get_features(segment, Fs);
     end
     
-    segment = track((n_segments-1)*n_samples+1:end);
-    data(n_segments, :) = get_features(segment, Fs);
+%     segment = track((n_segments-1)*n_samples+1:end);
+%     data(n_segments, :) = get_features(segment, Fs);
     
-    writematrix(data, 'extracted_features/shazam/recording/' + class + '.txt');
+    writematrix(data, 'extracted_features/shazam/' + class + '.txt');
 end
 
 %% fischer
@@ -162,7 +167,7 @@ legend('impromptu','yalan');
 title(["training data J =", num2str(J)]);
 
 %% read shazam features
-rootdir = 'extracted_features/shazam/recording';
+rootdir = 'extracted_features/shazam';
 filelist = dir(fullfile(rootdir, '*.txt'));
 
 file = filelist(1).name;
@@ -218,37 +223,53 @@ while ~is_found
 end
 
 fprintf(c);
+%% normalize data
+normalized_A = normalize(A);
+
 
 %% k-nearest neigbor
 
-classes = ["bir kadin cizeceksin", "bu son olsun", "ihtimal", "impromptu", "yalan"];
+classes = ["fade to black", "impromptu", "sarkilarin gozu", "yalan"];
 
 recObj = audiorecorder(Fs, 16, 1);
 disp('Listening....');
 
-recordblocking(recObj, 3);
+recordblocking(recObj, 6);
 track = getaudiodata(recObj);
-test = get_features(track, Fs);
 
-k = 30;
+n_frames = floor((length(track)-frame_len) / frame_shift)+1;
+test = zeros(n_frames, 52);
+    
+for j = 1:n_frames
+    segment = track((j-1)*frame_shift+1:(j-1)*frame_shift+frame_len);
+    test(j, :) = get_features(segment, Fs);
+end
 
-distances = vecnorm(A' - test'); % finds the distance to training samples
-[~, idx] = sort(distances, 'ascend'); % sorts the distances in ascending order
-% similarities = cosineSimilarity(A, test);
-% [~, idx] = sort(similarities, 'descend'); % sorts the similarities in descending order
+normalized_test = normalize(test);
+%%
+k = 50;
+test = normalized_test(4, :);
+
+% distances = vecnorm(normalized_A' - test'); % finds the distance to training samples
+% [~, idx] = sort(distances, 'ascend'); % sorts the distances in ascending order
+
+sims = cosineSimilarity(normalized_A, test);
+[~, idx] = sort(sims, 'ascend');
+
 y = mode(labels(idx(1:k))); % assigned class is the one that appears the most among the k nearest neighbor
-
+sum(labels(idx(1:k)) == y)
 fprintf("%s\n", classes(y));
 
 %% random forest
 
 % model = fitctree(A, labels);
-t = templateTree('NumVariablesToSample','all',...
-    'PredictorSelection','interaction-curvature','Surrogate','on');
-model = fitrensemble(A, labels, 'Method','Bag','NumLearningCycles',200, ...
-    'Learners',t);
+% t = templateTree('NumVariablesToSample','all',...
+%     'PredictorSelection','interaction-curvature','Surrogate','on');
+% model = fitrensemble(A, labels, 'Method','Bag','NumLearningCycles',125, ...
+%     'Learners',t);
 
-classes = ["bir kadin cizeceksin", "bu son olsun", "ihtimal", "impromptu", "yalan"];
+% classes = ["bir kadin cizeceksin", "bu son olsun", "ihtimal", "impromptu", "yalan"];
+classes = ["bit ihtimal", "bir kadin", "bu son"];
 % model = fitcknn(A, labels);
 
 %%
