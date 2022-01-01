@@ -8,7 +8,7 @@ function [mfcc_coeffs] = mfcc_features(segment, Fs)
     num_of_filters = 64; % number of filters 
     dct_coefficients = 20; % number of desired mfc coefficients
 
-    [coeffs, ~]=utilities.mfcc_calc(segment, Fs, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, true); % this function gets the mfccs
+    [coeffs, ~]=utilities.mfcc_calc(segment, Fs, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, true, false); % this function gets the mfccs
     coeffs = coeffs';
     coeffs = coeffs(all(~isnan(coeffs),2),:); % get only number vals
 

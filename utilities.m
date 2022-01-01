@@ -1,6 +1,6 @@
 classdef utilities
     methods(Static)
-        function [mel_filters] = get_filters(lowest_freq, highest_freq, num_filters, num_fft, sampling_rate, is_normalized)
+        function [mel_filters] = get_filters(lowest_freq, highest_freq, num_filters, num_fft, sampling_rate, is_normalized, plot_filter_generation)
             % the function calculates the mel filter banks by taking following inputs
             % lowest_freq: lowest frequency value desired to be considered in energy calculations 
             % highest_freq: highest frequencies desired to be considered in energy calculations
@@ -8,8 +8,8 @@ classdef utilities
             % num_fft : the number of points of which fast fourier taken
             % sampling_rate : the sampling rate of the audio
             % is_normalized : a boolean to indicate the filters should be normalized according to their bandwidth in frequency domain
-            
-            center_pts = utilities.calculate_centers(lowest_freq, highest_freq, num_filters, num_fft, sampling_rate); % get center frequencies of triangle filters
+            % plot_filter_generation: is a boolean to plot the intermediary steps during the creation of the filters
+            center_pts = utilities.calculate_centers(lowest_freq, highest_freq, num_filters, num_fft, sampling_rate, plot_filter_generation); % get center frequencies of triangle filters
             center_pts = center_pts+1; % to get 1 index as starting point
             frame_size = num_fft / 2 + 1; % calculate the window length for fft storage
             mel_filters = zeros(num_filters,frame_size); % initialize the vector that stores all filters
@@ -30,21 +30,23 @@ classdef utilities
                 mel_filters(i-1,:) = mel_filter; % assign finalized filter
             end
             % following lines are coded to plot the generated mel filter bank
-%             widths = center_pts(2:end) - center_pts(1:end-1); 
-%             figure
-%             hold on
-%             freq = (0:1:num_fft/2);
-%             for i =1:num_filters
-%                 plot(freq, mel_filters(i,:))
-%             end
-%             title("Mel Weights")
-%             xlabel('freq')
-%             ylabel('weight')
-%             grid on
-%             xlim([0 num_fft/2])
+            if plot_filter_generation
+                widths = center_pts(2:end) - center_pts(1:end-1); 
+                figure
+                hold on
+                freq = (0:1:num_fft/2);
+                for i =1:num_filters
+                    plot(freq, mel_filters(i,:))
+                end
+                title("Mel Weights")
+                xlabel('freq')
+                ylabel('weight')
+                grid on
+                xlim([0 num_fft/2])
+            end
         end
 
-        function [mel_centers] = calculate_centers(lowest_freq, highest_freq, num_filters, num_fft, sampling_rate)
+        function [mel_centers] = calculate_centers(lowest_freq, highest_freq, num_filters, num_fft, sampling_rate, plot_filter_generation)
             % a function to calculate center points of the mel filters by the following inputs
             % lowest_freq: lowest frequency value desired to be considered in energy calculations 
             % highest_freq: highest frequencies desired to be considered in energy calculations
@@ -54,11 +56,38 @@ classdef utilities
             mel_low = utilities.freq2mel(lowest_freq); % get the lowest point in the mel domain
             mel_high = utilities.freq2mel(highest_freq); % get the highest point in the mel domain
             mel_centers = (mel_low:(mel_high-mel_low)/(num_filters+1):mel_high); % divide mel domain into equally spaced parts
+            mel_centers_widened = round(mel_centers.*((num_fft+1)/2)./max(mel_centers)); % a variable for plotting purposes
             mel_centers = utilities.mel2freq(mel_centers); % convert division points into the frequency domain
             mel_centers = floor((num_fft+1).*mel_centers./sampling_rate); % convert center values into integers to be used in fft indexes
+            % plot the center point creation process
+            if plot_filter_generation
+                figure
+                colormap jet;
+                cmap=colormap;
+                for i=1:length(mel_centers)
+                    Plot_color=cmap(round(i*end/length(mel_centers)),:);
+                    if i==1 || i==length(mel_centers)
+                        plot(mel_centers(i),2, '*','Color', Plot_color);
+                        hold on
+                        y_vals = [2 1];
+                        x_vals = [mel_centers(i) mel_centers_widened(i)];
+                        plot(x_vals, y_vals, 'Color', Plot_color)
+                    end
+                    plot(mel_centers(i),0, '*','Color', Plot_color);
+                    plot(mel_centers_widened(i),1, 'o','Color', Plot_color);
+                    y_vals = [1 0];
+                    x_vals = [mel_centers_widened(i) mel_centers(i)];
+                    plot(x_vals, y_vals, 'Color', Plot_color)
+                end
+                text(((num_fft+1)/4), 2, 'freq')
+                text(((num_fft+1)/4), 1.1, 'mel')
+                text(((num_fft+1)/4), 0.1,'freq')
+                xlim([0 ((num_fft+1)/2)+2])
+                ylim([0 2.1])
+            end
         end
-        % the conversion is done by the formulae here https://en.wikipedia.org/wiki/Mel_scale
         
+        % the conversions are done by the formulae here https://en.wikipedia.org/wiki/Mel_scale
         function [freq_data]=mel2freq(mel_data_points)
             freq_data=700.*(10.^(mel_data_points./2595)-1);
         end
@@ -67,7 +96,7 @@ classdef utilities
             mel_data = 2595.*log10(1+freq_data_points./700);
         end
 
-        function [coeff,filtered]=mfcc_calc(data, sample_rate, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, is_normalized)
+        function [coeff,filtered]=mfcc_calc(data, sample_rate, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, is_normalized, plot_filter_generation)
             % the function calculates the Mel Frequency Cepstral Coefficients by getting following inputs
             % data: one channel audio signal 
             % sampling_rate : the sampling rate of the audio
@@ -90,7 +119,7 @@ classdef utilities
             end
             
             periodogram_estimate=(abs(frames).^2)./((FFT_size/2)+1); % get periodogram estimate by calculating the energy and normalizing the vector with the length
-            filters = utilities.get_filters(1, sample_rate/2, num_of_filters, FFT_size, sample_rate, is_normalized); % get the mel filter bank
+            filters = utilities.get_filters(1, sample_rate/2, num_of_filters, FFT_size, sample_rate, is_normalized, plot_filter_generation); % get the mel filter bank
             filtered = filters*periodogram_estimate; % filter the FFT data matrix
             filtered = 10.*log10(filtered); % get dB values
             dct_matrix=utilities.get_dct(dct_coefficients, num_of_filters); % get the dct matrix to turn data from cepstrum to coefficients

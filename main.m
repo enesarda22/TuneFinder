@@ -19,7 +19,7 @@ dct_coefficients = 20;
 [segment, Fs] = audioread("Data/genres_original/blues/blues.00000.wav");
 segment = segment(1:3*Fs);
 
-% [coeffs, filtered]=utilities.mfcc_calc(segment, sample_rate, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, true);
+% [coeffs, filtered]=utilities.mfcc_calc(segment, sample_rate, frame_size, hop_size, num_of_filters, FFT_size, dct_coefficients, true,false);
 % coeffs = coeffs';
 % coeffs = coeffs(all(~isnan(coeffs),2),:);
 % 
