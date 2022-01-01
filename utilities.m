@@ -116,6 +116,16 @@ classdef utilities
                 windowed = data((i-1)*frame_shift+1:(i-1)*frame_shift+frame_len).*hamming_win; % get hamming filtered windowed data
                 fft_result = fft(windowed,FFT_size); % calculate the fft of the current window
                 frames(:,i) = fft_result(1:end/2+1,1); % assign the fft into previously initialized frames
+                
+                if i == 300 && plot_filter_generation % plot the effect of the hamming window
+                    figure
+                    plot(hamming_win)
+                    frqaxis = (-1:2/FFT_size:1-2/FFT_size);
+                    figure,subplot(2,2,1),plot(data((i-1)*frame_shift+1:(i-1)*frame_shift+frame_len)),title('Original Data Frame in Time'),xlabel('s*Fs'),grid on
+                    subplot(2,2,2),plot(frqaxis,fftshift(abs(fft(data((i-1)*frame_shift+1:(i-1)*frame_shift+frame_len),FFT_size)))),title('Original Data Frame in Freq'),xlabel('f (rad/s)'),grid on,xlim([-0.2 0.2])
+                    subplot(2,2,3),plot(windowed),title('Hammed Data Frame in Time'),xlabel('s*Fs'),grid on
+                    subplot(2,2,4),plot(frqaxis,2.*fftshift(abs(fft_result))),title('Hammed Data Frame in Freq'),xlabel('f (rad/s)'),grid on,xlim([-0.2 0.2])
+                end
             end
             
             periodogram_estimate=(abs(frames).^2)./((FFT_size/2)+1); % get periodogram estimate by calculating the energy and normalizing the vector with the length
@@ -124,6 +134,17 @@ classdef utilities
             filtered = 10.*log10(filtered); % get dB values
             dct_matrix=utilities.get_dct(dct_coefficients, num_of_filters); % get the dct matrix to turn data from cepstrum to coefficients
             coeff = dct_matrix*filtered; % calculate the coefficients for each time frame
+            
+            if plot_filter_generation
+                % plots the Mel-Spectrogram
+                figure,subplot(1,2,1),filtered_flipped = flip(filtered);
+                imagesc(filtered_flipped),title('Our Mel-Spectogram')
+                subplot(1,2,2), melSpectrogram(data,sample_rate,'Window',hann(1200),'OverlapLength',480,'NumBands',64,'FFTLength',2048, 'FrequencyRange', [1 sample_rate/2], 'WindowNormalization', true), title('MATLABs Mel-Spectogram')
+                % plots the MFFCs
+                figure, colormap jet, imagesc(coeff), title('Mel Frequency-Cepstral Coefficents'), xlabel('Time Frames'), ylabel('Coefficients')
+                % plots the DCT matrix
+                figure, colormap jet, imagesc(dct_matrix), title('DCT Matrix'), xlabel('# Mel-Filters'), ylabel('DCT')                
+            end
         end
         
         function [dct_matrix]=get_dct(num_dct_coeff, num_mel_filters)
