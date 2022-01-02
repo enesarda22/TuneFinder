@@ -96,17 +96,17 @@ writematrix(data, 'data.txt');
 writematrix(y, 'y.txt');
 
 %% shazam feature extraction
-classes = ["yalan", "impromptu"];
+classes = ["all_i_need"];
 
 for i = 1:length(classes)
     class = classes(i);
 
     [track, Fs] = audioread("data/shazam_data/" + class + ".mp3");
     track = track(:, 1);
-%     track = track(10*Fs:180*Fs);
+    track = track(30*Fs:90*Fs);
     
-    window_length = 3; % window in sec
-    hop_length = 1; % hop in sec
+    window_length = 5; % window in sec
+    hop_length = 3; % hop in sec
 
     frame_len = floor(window_length*Fs);
     frame_shift = floor(hop_length*Fs);
@@ -123,7 +123,7 @@ for i = 1:length(classes)
 %     segment = track((n_segments-1)*n_samples+1:end);
 %     data(n_segments, :) = get_features(segment, Fs);
     
-    writematrix(data, 'extracted_features/shazam/' + class + '.txt');
+    writematrix(data, 'extracted_features/shazam/recording/5sec_' + class + '.txt');
 end
 
 %% fischer
@@ -168,7 +168,7 @@ legend('impromptu','yalan');
 title(["training data J =", num2str(J)]);
 
 %% read shazam features
-rootdir = 'extracted_features/shazam';
+rootdir = 'extracted_features/shazam/recording';
 filelist = dir(fullfile(rootdir, '*.txt'));
 
 file = filelist(1).name;
@@ -228,17 +228,18 @@ fprintf(c);
 
 %% k-nearest neigbor
 
-classes = ["fade to black", "impromptu", "sarkilarin gozu", "yalan"];
+classes = ["all i need", "fade to black", "sarkilarin gozu", "yalan"];
 
 recObj = audiorecorder(Fs, 16, 1);
 disp('Listening....');
 
-recordblocking(recObj, 3);
+recordblocking(recObj, 5);
 track = getaudiodata(recObj);
+track = track(1500:end);
 
 test = get_features(track, Fs);
 
-k = 50;
+k = 9;
 
 distances = vecnorm(A' - test'); % finds the distance to training samples
 [~, idx] = sort(distances, 'ascend'); % sorts the distances in ascending order
@@ -247,8 +248,46 @@ distances = vecnorm(A' - test'); % finds the distance to training samples
 % [~, idx] = sort(sims, 'ascend');
 
 y = mode(labels(idx(1:k))); % assigned class is the one that appears the most among the k nearest neighbor
-sum(labels(idx(1:k)) == y)
+sum(labels(idx(1:k)) == y)/k
 fprintf("%s\n", classes(y));
+
+%%
+classes = ["fade to black", "impromptu"];
+
+recObj = audiorecorder(Fs, 16, 1);
+disp('Listening....');
+
+recordblocking(recObj, 5);
+track = getaudiodata(recObj);
+track = track ./ max(track);
+
+window_length = 3; % window in sec
+hop_length = 1; % hop in sec
+
+frame_len = floor(window_length*Fs);
+frame_shift = floor(hop_length*Fs);
+
+n_frames = floor((length(track)-frame_len) / frame_shift)+1;
+
+for j = 1:n_frames
+    segment = track((j-1)*frame_shift+1:(j-1)*frame_shift+frame_len);
+    test = get_features(segment, Fs);
+
+    k = 5;
+    
+    distances = vecnorm(A' - test'); % finds the distance to training samples
+    [~, idx] = sort(distances, 'ascend'); % sorts the distances in ascending order
+    
+    % sims = cosineSimilarity(normalized_A, test);
+    % [~, idx] = sort(sims, 'ascend');
+    
+    y = mode(labels(idx(1:k))); % assigned class is the one that appears the most among the k nearest neighbor
+    sum(labels(idx(1:k)) == y);
+    fprintf("%s\n", classes(y));
+
+end
+
+
 
 %% random forest
 
@@ -270,7 +309,50 @@ disp('Listening....');
 recordblocking(recObj, 3);
 track = getaudiodata(recObj);
 test = get_features(track, Fs);
+test*W
 
-y = model.predict(test);
-fprintf("%s\n", classes(round(y)));
+
+% y = model.predict(test);
+% fprintf("%s\n", classes(round(y)));
+
+%% fisher
+classes = ["fade to black", "in da club", "sarkilarin gozu", "yalan"];
+d_prime = 52;
+n = 19;
+
+% M is the mean matrix with each column corresponding to mean of that class
+M = zeros(d_prime, size(classes, 2));
+% B is created to find the S_W
+B = zeros(d_prime, size(A, 1));
+for i = 1:size(classes, 2)
+
+    reduced_A = A(n*(i-1)+1:n*i, :);
+    M(:, i) = mean(reduced_A)';
+    B(:, n*(i-1)+1:n*i) = reduced_A' - M(:, i);
+
+end
+
+% S_W is calculated to hold the seperation within each class from the mean
+% of the class
+S_W = B*B';
+
+% S_B is calculated to hold the seperation between the mean of each class
+% from the mean of all the dataset
+S_B = zeros(d_prime, d_prime);
+m_all = mean(A)';
+for col = M
+    S_B = S_B + (col-m_all)*(col-m_all)';
+end
+S_B = S_B * n;
+
+% W matrix is a (d_prime * c-1) matrix whose columns are the c-1
+% eigenvectors of S_W\S_B corresponding to c-1 greatest eigenvalues
+[W, lambdas] = eig(S_W\S_B, 'vector');
+[~, ind] = sort(abs(lambdas), 'descend');
+W = W(:, 1:size(classes, 2)-1);
+
+% J is calculated using frobenius norm
+J = norm(W'*S_B*W, "fro") / norm(W'*S_W*W, "fro");
+
+fprintf("J for the 3 class FLD = %.2f\n", J);
 
