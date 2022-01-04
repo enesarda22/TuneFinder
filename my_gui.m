@@ -57,7 +57,8 @@ function []=mytestcallback(src,~)
     temp = cmap(1:2:end,:);
     temp_flip = flip(temp);
     cmap = [temp; temp_flip];
-    while 1
+    ending_condition = 1 ;
+    while ending_condition
     
         for k=1:length(t)
             t_k = t(k);
@@ -77,5 +78,16 @@ function []=mytestcallback(src,~)
             axis off
             drawnow
         end
+        if ~ending_condition
+            close all
+            predictionn = "yalan";
+            plot_prediction(predictionn)
+        end
     end
+end
+
+function []=plot_prediction(predictionn)
+    img_read = imread("./figs/"+predictionn);
+    image(img_read)
+    axis off
 end
