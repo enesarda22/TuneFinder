@@ -1,12 +1,13 @@
 %% reading audio
+
 [segment, Fs] = audioread("data/genre_data/blues/blues.00000.wav");
-segment = segment(1:3*Fs);
+segment = segment(1:4*Fs);
 
 spectrogram(segment,1024,512,1024,Fs,"yaxis");
 title("Auido");
 sound(segment, Fs);
 
-%% HPSS
+%% Harmonic Percussive Source Separation
 th1 = 0.7;
 N1 = 4096;
 [h1, p1] = my_hpss(segment, Fs, th1, N1);
@@ -18,8 +19,8 @@ N2 = 256;
 %% harmonic
 sound(h1, Fs);
 
-spectrogram(h1,1024,512,1024,Fs,"yaxis")
-title("Harmonic Part")
+spectrogram(h1,1024,512,1024,Fs,"yaxis");
+title("Harmonic Part");
 
 %% percussive
 sound(p2, Fs);
@@ -84,7 +85,7 @@ grid on;
 %% feature extraction
 classes = ["blues", "classical", "country", "disco", "hiphop", "jazz", "metal", "pop", "reggae", "rock"]; % classes are defined
 Fs = 22050; % sampling rate
-dur = 30; % duration of segments in sec
+dur = 3; % duration of segments in sec
 n_samples = Fs*dur; % number of samples
 n_segments = floor(30/dur); % number of segments each song
 
@@ -147,11 +148,11 @@ for i = 1:length(classes)
 
     n_frames = floor((length(track)-frame_len) / frame_shift)+1;
     
-    data = zeros(n_frames, 50);
+    data = zeros(n_frames, 52);
     
     for j = 1:n_frames
         segment = track((j-1)*frame_shift+1:(j-1)*frame_shift+frame_len);
-        data(j, :) = get_features_shazam(segment, Fs);
+        data(j, :) = get_features(segment, Fs);
     end
     
 %     segment = track((n_segments-1)*n_samples+1:end);
@@ -203,6 +204,48 @@ y = mode(labels(idx(1:k))); % assigned class is the one that appears the most am
 sum(labels(idx(1:k)) == y)/k
 fprintf("%s\n", classes(y));
 
+
+%% fisher linear discriminant
+A = readmatrix("extracted_features/after_spec/data.txt");
+classes = ["blues", "classical", "country", "disco", "hiphop", "jazz", "metal", "pop", "reggae", "rock"]; % classes are defined
+d_prime = 52; % # of features
+n = 1000; % sample size
+
+% M is the mean matrix with each column corresponding to mean of that class
+M = zeros(d_prime, size(classes, 2));
+% B is created to find the S_W
+B = zeros(d_prime, size(A, 1));
+for i = 1:size(classes, 2)
+
+    reduced_A = A(n*(i-1)+1:n*i, :);
+    M(:, i) = mean(reduced_A)';
+    B(:, n*(i-1)+1:n*i) = reduced_A' - M(:, i);
+
+end
+
+% S_W is calculated to hold the seperation within each class from the mean
+% of the class
+S_W = B*B';
+
+% S_B is calculated to hold the seperation between the mean of each class
+% from the mean of all the dataset
+S_B = zeros(d_prime, d_prime);
+m_all = mean(A)';
+for col = M
+    S_B = S_B + (col-m_all)*(col-m_all)';
+end
+S_B = S_B * n;
+
+% W matrix is a (d_prime * c-1) matrix whose columns are the c-1
+% eigenvectors of S_W\S_B corresponding to c-1 greatest eigenvalues
+[W, lambdas] = eig(S_W\S_B, 'vector');
+[~, ind] = sort(abs(lambdas), 'descend');
+W = W(:, 1:size(classes, 2)-1);
+
+% J is calculated using frobenius norm
+J = norm(W'*S_B*W, "fro") / norm(W'*S_W*W, "fro");
+
+fprintf("J for the 10 class FLD = %.2f\n", J);
 
 
 

@@ -1,11 +1,11 @@
 % this function calculates the harmonics and percussion of a segment
 function [h, p] = my_hpss(segment, Fs, threshold, N)
     
-    win = sqrt(hann(N,"periodic")); % window length
+    win = sqrt(hamming(N,"periodic")); % window length
     overlap_length = floor(numel(win)/2); % overlap length
     n_fft = 2^nextpow2(numel(win) + 1); % fft length
 
-    % spectrogram is found
+    % spectrogram
     y = stft(segment, ...
         "Window",win, ...
         "OverlapLength",overlap_length, ...
